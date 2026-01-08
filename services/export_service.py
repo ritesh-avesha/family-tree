@@ -32,15 +32,23 @@ def export_tree(tree: FamilyTree, options: ExportOptions) -> str:
 
 def export_pdf(tree: FamilyTree, options: ExportOptions, timestamp: str) -> str:
     """Export tree as PDF."""
-    from reportlab.lib.pagesizes import A4, A3, LETTER, LEGAL, landscape, portrait
+    from reportlab.lib.pagesizes import A4, A3, A2, A1, A0, B0, LETTER, LEGAL, TABLOID, landscape, portrait
     from reportlab.pdfgen import canvas
-    from reportlab.lib.units import mm
+    from reportlab.lib.units import mm, inch
     
+    # Standard page sizes plus large format
     page_sizes = {
         "A4": A4,
         "A3": A3,
+        "A2": A2,
+        "A1": A1,
+        "A0": A0,
+        "B0": B0,
         "Letter": LETTER,
-        "Legal": LEGAL
+        "Legal": LEGAL,
+        "Tabloid": TABLOID,
+        "Arch-E": (36 * inch, 48 * inch),  # Architectural E size
+        "Custom-Large": (1200 * mm, 900 * mm),  # Custom large format
     }
     
     page_size = page_sizes.get(options.page_size, A4)

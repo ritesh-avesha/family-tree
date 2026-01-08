@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Family Tree Builder - Create and visualize family trees">
     <title>Family Tree Builder</title>
+
+    <!-- Google Fonts for international support -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans:wght@400;500&family=Poppins:wght@400;500&family=Mukta:wght@400;500&family=Hind:wght@400;500&display=swap"
+        rel="stylesheet">
+
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 
@@ -326,16 +334,31 @@
                 </div>
 
                 <div id="image-options">
+                    <div class="form-group">
+                        <label for="image-preset">Image Size Preset</label>
+                        <select class="form-control" id="image-preset">
+                            <option value="custom">Custom</option>
+                            <option value="hd">HD (1280 × 720)</option>
+                            <option value="fullhd" selected>Full HD (1920 × 1080)</option>
+                            <option value="2k">2K (2560 × 1440)</option>
+                            <option value="4k">4K Ultra HD (3840 × 2160)</option>
+                            <option value="5k">5K (5120 × 2880)</option>
+                            <option value="8k">8K Ultra HD (7680 × 4320)</option>
+                            <option value="poster">Poster (4000 × 3000)</option>
+                            <option value="banner">Banner Wide (6000 × 2000)</option>
+                        </select>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="export-width">Width (px)</label>
                             <input type="number" class="form-control" id="export-width" value="1920" min="800"
-                                max="4096">
+                                max="16000">
                         </div>
                         <div class="form-group">
                             <label for="export-height">Height (px)</label>
                             <input type="number" class="form-control" id="export-height" value="1080" min="600"
-                                max="4096">
+                                max="16000">
                         </div>
                     </div>
 
@@ -349,10 +372,23 @@
                     <div class="form-group">
                         <label for="pdf-size">Page Size</label>
                         <select class="form-control" id="pdf-size">
-                            <option value="A4">A4</option>
-                            <option value="A3">A3</option>
-                            <option value="Letter">Letter</option>
-                            <option value="Legal">Legal</option>
+                            <optgroup label="Standard Sizes">
+                                <option value="A4">A4 (210 × 297 mm)</option>
+                                <option value="A3">A3 (297 × 420 mm)</option>
+                                <option value="Letter">Letter (8.5 × 11 in)</option>
+                                <option value="Legal">Legal (8.5 × 14 in)</option>
+                                <option value="Tabloid">Tabloid (11 × 17 in)</option>
+                            </optgroup>
+                            <optgroup label="Large Format">
+                                <option value="A2">A2 (420 × 594 mm)</option>
+                                <option value="A1">A1 (594 × 841 mm)</option>
+                                <option value="A0">A0 (841 × 1189 mm)</option>
+                            </optgroup>
+                            <optgroup label="Extra Large">
+                                <option value="B0">B0 (1000 × 1414 mm)</option>
+                                <option value="Arch-E">Arch E (914 × 1219 mm)</option>
+                                <option value="Custom-Large">Custom Large (1200 × 900 mm)</option>
+                            </optgroup>
                         </select>
                     </div>
 
@@ -479,13 +515,24 @@
                 <div class="form-group">
                     <label for="font-family">Font Family</label>
                     <select class="form-control" id="font-family">
-                        <option value="system-ui, -apple-system, sans-serif">System Default</option>
-                        <option value="Inter, sans-serif">Inter</option>
-                        <option value="Roboto, sans-serif">Roboto</option>
-                        <option value="Arial, sans-serif">Arial</option>
-                        <option value="Georgia, serif">Georgia</option>
-                        <option value="'Times New Roman', serif">Times New Roman</option>
-                        <option value="'Courier New', monospace">Courier New</option>
+                        <optgroup label="System Fonts">
+                            <option value="system-ui, -apple-system, sans-serif">System Default</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                        </optgroup>
+                        <optgroup label="Modern Fonts">
+                            <option value="'Inter', sans-serif">Inter</option>
+                            <option value="'Roboto', sans-serif">Roboto</option>
+                            <option value="'Poppins', sans-serif">Poppins</option>
+                            <option value="'Noto Sans', sans-serif">Noto Sans</option>
+                        </optgroup>
+                        <optgroup label="Hindi / Devanagari">
+                            <option value="'Noto Sans Devanagari', sans-serif">Noto Sans Devanagari</option>
+                            <option value="'Mukta', sans-serif">Mukta</option>
+                            <option value="'Hind', sans-serif">Hind</option>
+                        </optgroup>
                     </select>
                 </div>
 

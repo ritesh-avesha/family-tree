@@ -279,6 +279,9 @@ const TreeRenderer = {
         name.setAttribute('x', this.nodeWidth / 2);
         name.setAttribute('y', photoOffset + 24);
         name.setAttribute('class', 'node-text');
+        // Explicitly set font-family from CSS variable
+        const fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--node-font-family').trim() || 'system-ui, -apple-system, sans-serif';
+        name.setAttribute('font-family', fontFamily);
         name.textContent = this.truncateName(person.name, 16);
         g.appendChild(name);
 
@@ -288,6 +291,7 @@ const TreeRenderer = {
             dates.setAttribute('x', this.nodeWidth / 2);
             dates.setAttribute('y', photoOffset + 42);
             dates.setAttribute('class', 'node-date');
+            dates.setAttribute('font-family', fontFamily);
 
             let dateText = '';
             if (person.date_of_birth) dateText += `b.${person.date_of_birth}`;

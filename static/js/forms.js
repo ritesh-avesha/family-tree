@@ -496,6 +496,27 @@ const Forms = {
                 document.getElementById('quality-group').style.display = e.target.value === 'jpg' ? 'block' : 'none';
             });
         });
+
+        // Image preset handler
+        document.getElementById('image-preset').addEventListener('change', (e) => {
+            const presets = {
+                'custom': null,
+                'hd': { width: 1280, height: 720 },
+                'fullhd': { width: 1920, height: 1080 },
+                '2k': { width: 2560, height: 1440 },
+                '4k': { width: 3840, height: 2160 },
+                '5k': { width: 5120, height: 2880 },
+                '8k': { width: 7680, height: 4320 },
+                'poster': { width: 4000, height: 3000 },
+                'banner': { width: 6000, height: 2000 }
+            };
+
+            const preset = presets[e.target.value];
+            if (preset) {
+                document.getElementById('export-width').value = preset.width;
+                document.getElementById('export-height').value = preset.height;
+            }
+        });
     },
 
     openExportModal() {
