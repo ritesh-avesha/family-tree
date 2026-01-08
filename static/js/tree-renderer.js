@@ -1,0 +1,374 @@
+/**
+ * Family Tree Application - Tree Renderer
+ * Handles SVG rendering, pan/zoom, and node dragging
+ */
+
+const TreeRenderer = {
+    svg: null,
+    canvasGroup: null,
+    linesLayer: null,
+    nodesLayer: null,
+
+    // Pan/zoom state
+    transform: { x: 0, y: 0, scale: 1 },
+    isPanning: false,
+    panStart: { x: 0, y: 0 },
+
+    // Drag state
+    isDragging: false,
+    draggedNodeId: null,
+    dragOffset: { x: 0, y: 0 },
+
+    // Node dimensions
+    nodeWidth: 140,
+    nodeHeight: 60,
+
+    init() {
+        this.svg = document.getElementById('tree-canvas');
+        this.canvasGroup = document.getElementById('canvas-group');
+        this.linesLayer = document.getElementById('lines-layer');
+        this.nodesLayer = document.getElementById('nodes-layer');
+
+        this.initPanZoom();
+        this.initDrag();
+        this.centerView();
+    },
+
+    initPanZoom() {
+        const container = document.getElementById('canvas-container');
+
+        // Mouse wheel zoom
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.min(Math.max(this.transform.scale * delta, 0.2), 3);
+
+            // Zoom towards mouse position
+            const scaleChange = newScale / this.transform.scale;
+            this.transform.x = mouseX - (mouseX - this.transform.x) * scaleChange;
+            this.transform.y = mouseY - (mouseY - this.transform.y) * scaleChange;
+            this.transform.scale = newScale;
+
+            this.applyTransform();
+        });
+
+        // Pan with mouse drag on empty space
+        this.svg.addEventListener('mousedown', (e) => {
+            if (e.target === this.svg || e.target.id === 'canvas-group' ||
+                e.target.tagName === 'line' || e.target.tagName === 'path') {
+
+                // Clear selection on background click (unless Ctrl held)
+                if (!e.ctrlKey && !e.metaKey) {
+                    AppState.selectedPersonIds.clear();
+                    AppState.selectedPersonId = null;
+                    this.render();
+                }
+
+                this.isPanning = true;
+                this.panStart = { x: e.clientX - this.transform.x, y: e.clientY - this.transform.y };
+                this.svg.style.cursor = 'grabbing';
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (this.isPanning) {
+                this.transform.x = e.clientX - this.panStart.x;
+                this.transform.y = e.clientY - this.panStart.y;
+                this.applyTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.isPanning) {
+                this.isPanning = false;
+                this.svg.style.cursor = 'grab';
+            }
+        });
+    },
+
+    initDrag() {
+        // Node dragging is handled in the render method via event listeners
+    },
+
+    applyTransform() {
+        this.canvasGroup.setAttribute('transform',
+            `translate(${this.transform.x}, ${this.transform.y}) scale(${this.transform.scale})`
+        );
+    },
+
+    centerView() {
+        const container = document.getElementById('canvas-container');
+        const rect = container.getBoundingClientRect();
+        this.transform.x = rect.width / 2;
+        this.transform.y = 100;
+        this.transform.scale = 1;
+        this.applyTransform();
+    },
+
+    render() {
+        const persons = AppState.tree.persons;
+        const marriages = AppState.tree.marriages;
+        const parentChild = AppState.tree.parent_child;
+
+        // Clear layers
+        this.linesLayer.innerHTML = '';
+        this.nodesLayer.innerHTML = '';
+
+        if (Object.keys(persons).length === 0) {
+            return;
+        }
+
+        // Draw marriage lines
+        Object.values(marriages).forEach(marriage => {
+            const p1 = persons[marriage.spouse1_id];
+            const p2 = persons[marriage.spouse2_id];
+
+            if (p1 && p2) {
+                this.drawMarriageLine(p1, p2, marriage.id);
+            }
+        });
+
+        // Draw parent-child lines
+        parentChild.forEach(pc => {
+            const parent = persons[pc.parent_id];
+            const child = persons[pc.child_id];
+
+            if (parent && child) {
+                // Check if this child belongs to a marriage
+                let marriageCenterX = null;
+                let marriageCenterY = null;
+
+                if (pc.marriage_id && marriages[pc.marriage_id]) {
+                    const m = marriages[pc.marriage_id];
+                    const spouse1 = persons[m.spouse1_id];
+                    const spouse2 = persons[m.spouse2_id];
+
+                    if (spouse1 && spouse2) {
+                        marriageCenterX = (spouse1.x + spouse2.x) / 2;
+                        marriageCenterY = (spouse1.y + spouse2.y) / 2;
+                    }
+                }
+
+                this.drawChildLine(parent, child, marriageCenterX, marriageCenterY);
+            }
+        });
+
+        // Draw nodes
+        Object.values(persons).forEach(person => {
+            this.drawNode(person);
+        });
+    },
+
+    drawMarriageLine(p1, p2, marriageId) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', p1.x);
+        line.setAttribute('y1', p1.y);
+        line.setAttribute('x2', p2.x);
+        line.setAttribute('y2', p2.y);
+        line.setAttribute('class', 'marriage-line');
+        line.setAttribute('data-marriage-id', marriageId);
+        this.linesLayer.appendChild(line);
+    },
+
+    drawChildLine(parent, child, marriageCenterX, marriageCenterY) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+        let startX, startY;
+
+        if (marriageCenterX !== null && marriageCenterY !== null) {
+            startX = marriageCenterX;
+            startY = marriageCenterY;
+        } else {
+            startX = parent.x;
+            startY = parent.y + this.nodeHeight / 2;
+        }
+
+        const endX = child.x;
+        const endY = child.y - this.nodeHeight / 2;
+        const midY = (startY + endY) / 2;
+        const d = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
+        path.setAttribute('d', d);
+        path.setAttribute('class', 'child-line');
+        path.setAttribute('fill', 'none');
+        this.linesLayer.appendChild(path);
+    },
+
+    drawNode(person) {
+        const isSelected = AppState.selectedPersonIds.has(person.id) || AppState.selectedPersonId === person.id;
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', `node ${isSelected ? 'node-selected' : ''}`);
+        g.setAttribute('data-person-id', person.id);
+        g.setAttribute('transform', `translate(${person.x - this.nodeWidth / 2}, ${person.y - this.nodeHeight / 2})`);
+
+        // Rectangle
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('width', this.nodeWidth);
+        rect.setAttribute('height', this.nodeHeight);
+        rect.setAttribute('rx', '4');
+        rect.setAttribute('class', `node-rect ${person.gender}`);
+        g.appendChild(rect);
+
+        // Name
+        const name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        name.setAttribute('x', this.nodeWidth / 2);
+        name.setAttribute('y', 24);
+        name.setAttribute('class', 'node-text');
+        name.textContent = this.truncateName(person.name, 16);
+        g.appendChild(name);
+
+        // Dates
+        if (person.date_of_birth || person.date_of_death) {
+            const dates = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            dates.setAttribute('x', this.nodeWidth / 2);
+            dates.setAttribute('y', 42);
+            dates.setAttribute('class', 'node-date');
+
+            let dateText = '';
+            if (person.date_of_birth) dateText += `b.${person.date_of_birth}`;
+            if (person.date_of_death) dateText += ` d.${person.date_of_death}`;
+            dates.textContent = this.truncateName(dateText.trim(), 20);
+            g.appendChild(dates);
+        }
+
+        // Event listeners
+        g.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+
+            // Handle selection
+            if (e.ctrlKey || e.metaKey) {
+                // Toggle selection
+                if (AppState.selectedPersonIds.has(person.id)) {
+                    AppState.selectedPersonIds.delete(person.id);
+                } else {
+                    AppState.selectedPersonIds.add(person.id);
+                }
+            } else {
+                // If not holding Ctrl and not dragging a currently selected node, clear others
+                if (!AppState.selectedPersonIds.has(person.id)) {
+                    AppState.selectedPersonIds.clear();
+                    AppState.selectedPersonIds.add(person.id);
+                }
+                // If dragging a selected node, we keep the group selection
+            }
+
+            AppState.selectedPersonId = person.id; // Keep primary selection for details
+            this.render(); // Re-render to show selection
+
+            this.startDrag(person.id, e);
+        });
+
+
+
+        g.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Select if not selected
+            if (!AppState.selectedPersonIds.has(person.id)) {
+                AppState.selectedPersonIds.clear();
+                AppState.selectedPersonIds.add(person.id);
+                AppState.selectedPersonId = person.id;
+                this.render();
+            }
+            showContextMenu(e.clientX, e.clientY, person.id);
+        });
+
+        this.nodesLayer.appendChild(g);
+    },
+
+    truncateName(name, maxLen) {
+        if (name.length <= maxLen) return name;
+        return name.substring(0, maxLen - 2) + '...';
+    },
+
+    startDrag(personId, e) {
+        this.isDragging = false;
+        this.draggedNodeId = personId;
+
+        const rect = this.svg.getBoundingClientRect();
+        const startMouseX = (e.clientX - rect.left - this.transform.x) / this.transform.scale;
+        const startMouseY = (e.clientY - rect.top - this.transform.y) / this.transform.scale;
+
+        // Store initial positions of all selected nodes
+        const initialPositions = new Map();
+        AppState.selectedPersonIds.forEach(id => {
+            const p = AppState.tree.persons[id];
+            if (p) {
+                initialPositions.set(id, { x: p.x, y: p.y });
+            }
+        });
+
+        const moveHandler = (e) => {
+            const rect = this.svg.getBoundingClientRect();
+            const currentMouseX = (e.clientX - rect.left - this.transform.x) / this.transform.scale;
+            const currentMouseY = (e.clientY - rect.top - this.transform.y) / this.transform.scale;
+
+            const dx = currentMouseX - startMouseX;
+            const dy = currentMouseY - startMouseY;
+
+            // Check if actually dragging (moved more than 5 pixels)
+            if (!this.isDragging) {
+                if (Math.sqrt(dx * dx + dy * dy) > 5) {
+                    this.isDragging = true;
+                }
+            }
+
+            if (this.isDragging) {
+                // Update all selected nodes
+                initialPositions.forEach((pos, id) => {
+                    if (AppState.tree.persons[id]) {
+                        AppState.tree.persons[id].x = pos.x + dx;
+                        AppState.tree.persons[id].y = pos.y + dy;
+                    }
+                });
+                this.render();
+            }
+        };
+
+        const upHandler = async () => {
+            document.removeEventListener('mousemove', moveHandler);
+            document.removeEventListener('mouseup', upHandler);
+
+            if (this.isDragging) {
+                // Save positions to server
+                try {
+                    const updates = [];
+                    AppState.selectedPersonIds.forEach(id => {
+                        const p = AppState.tree.persons[id];
+                        if (p) {
+                            updates.push({ id: p.id, x: p.x, y: p.y });
+                        }
+                    });
+
+                    if (updates.length > 0) {
+                        await API.updatePositions(updates);
+                    }
+                } catch (error) {
+                    console.error('Failed to save positions:', error);
+                    showToast('Failed to save positions', 'error');
+                }
+            } else {
+                // Click (no drag)
+                // If single selection, show details
+                if (AppState.selectedPersonIds.size <= 1) {
+                    if (typeof showPersonDetails === 'function') {
+                        showPersonDetails(personId);
+                    }
+                }
+            }
+
+            this.draggedNodeId = null;
+            setTimeout(() => { this.isDragging = false; }, 0);
+        };
+
+        document.addEventListener('mousemove', moveHandler);
+        document.addEventListener('mouseup', upHandler);
+    }
+};
+
+// Export
+window.TreeRenderer = TreeRenderer;
