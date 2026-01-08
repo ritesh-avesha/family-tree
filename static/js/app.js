@@ -133,6 +133,10 @@ const API = {
         });
     },
 
+    async updateMarriage(id, data) {
+        return this.request('PUT', `/marriages/${id}`, data);
+    },
+
     async deleteMarriage(id) {
         return this.request('DELETE', `/marriages/${id}`);
     },
@@ -776,7 +780,13 @@ function showPersonDetails(personId) {
             const spouseId = m.spouse1_id === personId ? m.spouse2_id : m.spouse1_id;
             const spouse = AppState.tree.persons[spouseId];
             if (spouse) {
-                html += `<div style="padding: 6px 0; font-size: 13px;">${spouse.name}</div>`;
+                const marriageDate = m.marriage_date ? ` (⚭ ${m.marriage_date})` : '';
+                html += `
+                    <div style="padding: 6px 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>${spouse.name}${marriageDate}</span>
+                        <button class="btn btn-sm" onclick="Forms.openEditMarriageModal('${m.id}')" title="Edit marriage date">✏️</button>
+                    </div>
+                `;
             }
         });
         html += `</div>`;

@@ -548,6 +548,31 @@
         </div>
     </div>
 
+    <!-- Edit Marriage Modal -->
+    <div class="modal-overlay" id="edit-marriage-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Edit Marriage</h3>
+                <button class="modal-close" id="edit-marriage-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Marriage between: <strong id="marriage-spouses"></strong></label>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-marriage-date">Marriage Date</label>
+                    <input type="text" class="form-control" id="edit-marriage-date"
+                        placeholder="e.g. 1995 or 15 Aug 1995">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="edit-marriage-cancel-btn">Cancel</button>
+                <button class="btn btn-primary" id="edit-marriage-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 

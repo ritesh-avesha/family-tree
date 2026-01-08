@@ -62,6 +62,27 @@ async def list_marriages():
     return list(tree_state.tree.marriages.values())
 
 
+@router.put("/marriages/{marriage_id}", response_model=Marriage)
+async def update_marriage(marriage_id: str, data: dict):
+    """Update marriage details."""
+    if tree_state is None:
+        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    
+    if marriage_id not in tree_state.tree.marriages:
+        raise HTTPException(status_code=404, detail="Marriage not found")
+    
+    tree_state.save_state("update_marriage")
+    
+    marriage = tree_state.tree.marriages[marriage_id]
+    
+    # Update allowed fields
+    if "marriage_date" in data:
+        marriage.marriage_date = data["marriage_date"]
+    
+    logger.info("Updated marriage: %s", marriage_id)
+    return marriage
+
+
 @router.delete("/marriages/{marriage_id}")
 async def delete_marriage(marriage_id: str):
     """Delete a marriage."""

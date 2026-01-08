@@ -174,14 +174,74 @@ const TreeRenderer = {
         const p1PhotoOffset = p1HasPhoto ? (photoSize + 5) / 2 : 0;
         const p2PhotoOffset = p2HasPhoto ? (photoSize + 5) / 2 : 0;
 
+        const x1 = p1.x;
+        const y1 = p1.y + p1PhotoOffset;
+        const x2 = p2.x;
+        const y2 = p2.y + p2PhotoOffset;
+
         // Connect to center of rectangle (which is shifted down if photo exists)
-        line.setAttribute('x1', p1.x);
-        line.setAttribute('y1', p1.y + p1PhotoOffset);
-        line.setAttribute('x2', p2.x);
-        line.setAttribute('y2', p2.y + p2PhotoOffset);
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
         line.setAttribute('class', 'marriage-line');
         line.setAttribute('data-marriage-id', marriageId);
+
+        // Add double-click handler to edit marriage
+        line.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            Forms.openEditMarriageModal(marriageId);
+        });
+
+        line.style.cursor = 'pointer';
         this.linesLayer.appendChild(line);
+
+        // Add marriage date label if available
+        const marriage = AppState.tree.marriages[marriageId];
+        const marriageDate = marriage && (marriage.marriage_date || marriage.date);
+        if (marriageDate) {
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            // Background rectangle for better readability
+            const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            const dateText = `⚭ ${marriageDate}`;
+            const textWidth = dateText.length * 6; // Approximate width
+
+            bg.setAttribute('x', midX - textWidth / 2 - 4);
+            bg.setAttribute('y', midY - 10);
+            bg.setAttribute('width', textWidth + 8);
+            bg.setAttribute('height', 16);
+            bg.setAttribute('fill', 'white');
+            bg.setAttribute('stroke', '#999');
+            bg.setAttribute('stroke-width', '1');
+            bg.setAttribute('rx', '3');
+            bg.style.cursor = 'pointer';
+
+            // Add click handler to background
+            bg.addEventListener('click', (e) => {
+                e.stopPropagation();
+                Forms.openEditMarriageModal(marriageId);
+            });
+
+            this.linesLayer.appendChild(bg);
+
+            // Date text
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', midX);
+            text.setAttribute('y', midY + 3);
+            text.setAttribute('class', 'marriage-date');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('font-size', '10px');
+            text.setAttribute('fill', '#333');
+            const fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--node-font-family').trim() || 'system-ui, -apple-system, sans-serif';
+            text.setAttribute('font-family', fontFamily);
+            text.textContent = dateText;
+            text.style.cursor = 'pointer';
+            text.style.pointerEvents = 'none'; // Let clicks pass through to background
+
+            this.linesLayer.appendChild(text);
+        }
     },
 
     drawChildLine(parent, child, marriageCenterX, marriageCenterY) {

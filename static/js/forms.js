@@ -10,6 +10,7 @@ const Forms = {
         this.initExportModal();
         this.initLoadModal();
         this.initLayoutModal();
+        this.initEditMarriageModal();
     },
 
     // ==================== Person Modal ====================
@@ -681,6 +682,60 @@ const Forms = {
             TreeRenderer.centerView();
         } catch (error) {
             showToast(error.message || 'Layout failed', 'error');
+        }
+    },
+
+    // ==================== Edit Marriage Modal ====================
+
+    initEditMarriageModal() {
+        const modal = document.getElementById('edit-marriage-modal');
+        const closeBtn = document.getElementById('edit-marriage-modal-close');
+        const cancelBtn = document.getElementById('edit-marriage-cancel-btn');
+        const saveBtn = document.getElementById('edit-marriage-save-btn');
+
+        closeBtn.addEventListener('click', () => this.closeModal(modal));
+        cancelBtn.addEventListener('click', () => this.closeModal(modal));
+        saveBtn.addEventListener('click', async () => await this.saveMarriage());
+    },
+
+    openEditMarriageModal(marriageId) {
+        const modal = document.getElementById('edit-marriage-modal');
+        const marriage = AppState.tree.marriages[marriageId];
+
+        if (!marriage) return;
+
+        const spouse1 = AppState.tree.persons[marriage.spouse1_id];
+        const spouse2 = AppState.tree.persons[marriage.spouse2_id];
+
+        if (!spouse1 || !spouse2) return;
+
+        modal.dataset.marriageId = marriageId;
+        document.getElementById('marriage-spouses').textContent = `${spouse1.name} & ${spouse2.name}`;
+        document.getElementById('edit-marriage-date').value = marriage.marriage_date || '';
+
+        modal.classList.add('active');
+    },
+
+    async saveMarriage() {
+        const modal = document.getElementById('edit-marriage-modal');
+        const saveBtn = document.getElementById('edit-marriage-save-btn');
+
+        if (saveBtn.disabled) return;
+        saveBtn.disabled = true;
+
+        const marriageId = modal.dataset.marriageId;
+        const date = document.getElementById('edit-marriage-date').value.trim();
+
+        try {
+            await API.updateMarriage(marriageId, { marriage_date: date });
+            showToast('Marriage updated', 'success');
+            this.closeModal(modal);
+            await loadTreeData();
+            TreeRenderer.render();
+        } catch (error) {
+            showToast(error.message || 'Failed to update marriage', 'error');
+        } finally {
+            saveBtn.disabled = false;
         }
     },
 

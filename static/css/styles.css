@@ -500,7 +500,13 @@ textarea.form-control {
 
 .marriage-line {
     stroke: var(--marriage-line);
-    stroke-width: 2;
+    stroke-width: 3;
+    cursor: pointer;
+}
+
+.marriage-line:hover {
+    stroke-width: 4;
+    stroke: #666;
 }
 
 .child-line {
