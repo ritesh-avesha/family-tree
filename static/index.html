@@ -23,6 +23,7 @@
                     <div class="dropdown-menu" id="file-menu">
                         <a class="dropdown-item" id="new-tree-btn">New Tree</a>
                         <a class="dropdown-item" id="save-btn">Save</a>
+                        <a class="dropdown-item" id="save-as-btn">Save As...</a>
                         <a class="dropdown-item" id="load-btn">Load...</a>
                         <a class="dropdown-item danger" id="clear-btn">Clear Canvas</a>
                     </div>
@@ -213,6 +214,23 @@
                     </div>
                 </div>
 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="spouse-dob">Date of Birth</label>
+                        <input type="text" class="form-control" id="spouse-dob" placeholder="e.g. 1985">
+                    </div>
+                    <div class="form-group">
+                        <label for="spouse-dod">Date of Death</label>
+                        <input type="text" class="form-control" id="spouse-dod" placeholder="Optional">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="spouse-notes">Notes</label>
+                    <textarea class="form-control" id="spouse-notes" rows="2"
+                        placeholder="Optional notes..."></textarea>
+                </div>
+
                 <div class="form-group">
                     <label for="marriage-date">Marriage Date</label>
                     <input type="text" class="form-control" id="marriage-date" placeholder="Optional">
@@ -259,6 +277,22 @@
                             <input type="radio" name="child-gender" value="unknown" checked> Unspecified
                         </label>
                     </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="child-dob">Date of Birth</label>
+                        <input type="text" class="form-control" id="child-dob" placeholder="e.g. 2010">
+                    </div>
+                    <div class="form-group">
+                        <label for="child-dod">Date of Death</label>
+                        <input type="text" class="form-control" id="child-dod" placeholder="Optional">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="child-notes">Notes</label>
+                    <textarea class="form-control" id="child-notes" rows="2" placeholder="Optional notes..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -440,6 +474,24 @@
                 <div class="form-group">
                     <label for="font-size">Font Size: <span id="font-size-value">12</span>px</label>
                     <input type="range" class="form-control" id="font-size" value="12" min="10" max="20" step="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="font-family">Font Family</label>
+                    <select class="form-control" id="font-family">
+                        <option value="system-ui, -apple-system, sans-serif">System Default</option>
+                        <option value="Inter, sans-serif">Inter</option>
+                        <option value="Roboto, sans-serif">Roboto</option>
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="photo-size">Photo Size: <span id="photo-size-value">40</span>px</label>
+                    <input type="range" class="form-control" id="photo-size" value="40" min="30" max="80" step="5">
                 </div>
             </div>
             <div class="modal-footer">

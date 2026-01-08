@@ -12,6 +12,7 @@ const AppState = {
     selectedPersonId: null,
     selectedPersonIds: new Set(), // Support for multi-select
     layoutDirection: 'top-down',
+    currentFilename: null, // Track the current file for Save functionality
     canUndo: false,
     canRedo: false
 };
@@ -322,6 +323,7 @@ function initToolbar() {
         }
         try {
             await API.newTree();
+            AppState.currentFilename = null; // Reset filename for new tree
             await loadTreeData();
             showToast('New tree created', 'success');
         } catch (error) {
@@ -329,11 +331,30 @@ function initToolbar() {
         }
     });
 
-    // Save
+    // Save (use current file or prompt for new)
     document.getElementById('save-btn').addEventListener('click', async () => {
         try {
-            const result = await API.saveTree();
-            showToast(`Saved as ${result.filename}`, 'success');
+            let filename = AppState.currentFilename;
+            if (!filename) {
+                filename = prompt('Enter filename:', `family_tree_${new Date().toISOString().slice(0, 10)}`);
+                if (!filename) return; // User cancelled
+            }
+            const result = await API.saveTree(filename);
+            AppState.currentFilename = result.filename;
+            showToast(`Saved: ${result.filename}`, 'success');
+        } catch (error) {
+            showToast('Save failed', 'error');
+        }
+    });
+
+    // Save As (always prompt for new filename)
+    document.getElementById('save-as-btn').addEventListener('click', async () => {
+        try {
+            const filename = prompt('Enter new filename:', `family_tree_${new Date().toISOString().slice(0, 10)}`);
+            if (!filename) return; // User cancelled
+            const result = await API.saveTree(filename);
+            AppState.currentFilename = result.filename;
+            showToast(`Saved as: ${result.filename}`, 'success');
         } catch (error) {
             showToast('Save failed', 'error');
         }
@@ -472,6 +493,15 @@ function openSettingsModal() {
     document.getElementById('font-size').value = savedFontSize;
     document.getElementById('font-size-value').textContent = savedFontSize;
 
+    // Load saved font family or default
+    const savedFontFamily = localStorage.getItem('nodeFontFamily') || 'system-ui, -apple-system, sans-serif';
+    document.getElementById('font-family').value = savedFontFamily;
+
+    // Load saved photo size or default
+    const savedPhotoSize = localStorage.getItem('photoSize') || '40';
+    document.getElementById('photo-size').value = savedPhotoSize;
+    document.getElementById('photo-size-value').textContent = savedPhotoSize;
+
     modal.classList.add('active');
 }
 
@@ -502,6 +532,14 @@ function initSettings() {
         const fontSize = parseInt(document.getElementById('font-size').value);
         applyFontSize(fontSize);
 
+        // Apply font family
+        const fontFamily = document.getElementById('font-family').value;
+        applyFontFamily(fontFamily);
+
+        // Apply photo size
+        const photoSize = parseInt(document.getElementById('photo-size').value);
+        applyPhotoSize(photoSize);
+
         modal.classList.remove('active');
         showToast('Settings applied', 'success');
     });
@@ -528,6 +566,12 @@ function initSettings() {
         document.getElementById('font-size-value').textContent = e.target.value;
     });
 
+    // Photo size slider
+    const photoSizeSlider = document.getElementById('photo-size');
+    photoSizeSlider.addEventListener('input', (e) => {
+        document.getElementById('photo-size-value').textContent = e.target.value;
+    });
+
     // Load saved colors on init
     const savedColors = JSON.parse(localStorage.getItem('genderColors'));
     if (savedColors) {
@@ -549,6 +593,21 @@ function initSettings() {
         document.getElementById('font-size').value = savedFontSize;
         document.getElementById('font-size-value').textContent = savedFontSize;
     }
+
+    // Load saved font family on init
+    const savedFontFamily = localStorage.getItem('nodeFontFamily');
+    if (savedFontFamily) {
+        applyFontFamily(savedFontFamily);
+        document.getElementById('font-family').value = savedFontFamily;
+    }
+
+    // Load saved photo size on init
+    const savedPhotoSize = localStorage.getItem('photoSize');
+    if (savedPhotoSize) {
+        applyPhotoSize(parseInt(savedPhotoSize));
+        document.getElementById('photo-size').value = savedPhotoSize;
+        document.getElementById('photo-size-value').textContent = savedPhotoSize;
+    }
 }
 
 // Apply node size
@@ -567,6 +626,21 @@ function applyNodeSize(size) {
 function applyFontSize(size) {
     document.documentElement.style.setProperty('--node-font-size', `${size}px`);
     localStorage.setItem('nodeFontSize', size);
+    if (TreeRenderer.render) TreeRenderer.render();
+}
+
+// Apply font family
+function applyFontFamily(fontFamily) {
+    document.documentElement.style.setProperty('--node-font-family', fontFamily);
+    localStorage.setItem('nodeFontFamily', fontFamily);
+    if (TreeRenderer.render) TreeRenderer.render();
+}
+
+// Apply photo size
+function applyPhotoSize(size) {
+    window.photoSize = size;
+    localStorage.setItem('photoSize', size);
+    if (TreeRenderer.render) TreeRenderer.render();
 }
 
 // Initialize context menu

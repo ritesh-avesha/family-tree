@@ -177,10 +177,12 @@ const Forms = {
         modal.dataset.personId = personId;
 
         // Reset form
-        // Reset form
         document.getElementById('marriage-date').value = '';
         document.getElementById('new-spouse-name').value = '';
         document.getElementById('new-spouse-name').disabled = false;
+        document.getElementById('spouse-dob').value = '';
+        document.getElementById('spouse-dod').value = '';
+        document.getElementById('spouse-notes').value = '';
 
         // Pre-select opposite gender
         const oppositeGender = person.gender === 'male' ? 'female' : (person.gender === 'female' ? 'male' : 'unknown');
@@ -249,11 +251,18 @@ const Forms = {
                 await API.updatePositions(updates);
             }
 
+            const dob = document.getElementById('spouse-dob').value.trim();
+            const dod = document.getElementById('spouse-dod').value.trim();
+            const notes = document.getElementById('spouse-notes').value.trim();
+
             const result = await API.createPerson({
                 name: newName,
                 gender: gender,
                 x: spouseX,
-                y: spouseY
+                y: spouseY,
+                date_of_birth: dob || null,
+                date_of_death: dod || null,
+                notes: notes || null
             });
             spouseId = result.id;
         } catch (error) {
@@ -303,16 +312,22 @@ const Forms = {
         // Reset form
         document.getElementById('new-child-name').value = '';
         document.getElementById('new-child-name').disabled = false;
+        document.getElementById('child-dob').value = '';
+        document.getElementById('child-dod').value = '';
+        document.getElementById('child-notes').value = '';
+        modal.querySelector('input[name="child-gender"][value="unknown"]').checked = true;
 
         // Populate marriages dropdown
         const marriageSelect = document.getElementById('child-marriage');
         marriageSelect.innerHTML = '<option value="">-- No specific marriage --</option>';
 
+        const personMarriages = [];
         Object.values(AppState.tree.marriages).forEach(m => {
             if (m.spouse1_id === personId || m.spouse2_id === personId) {
                 const spouseId = m.spouse1_id === personId ? m.spouse2_id : m.spouse1_id;
                 const spouse = AppState.tree.persons[spouseId];
                 if (spouse) {
+                    personMarriages.push({ marriage: m, spouse: spouse });
                     const option = document.createElement('option');
                     option.value = m.id;
                     option.textContent = `With ${spouse.name}`;
@@ -320,6 +335,11 @@ const Forms = {
                 }
             }
         });
+
+        // Auto-select if exactly one marriage
+        if (personMarriages.length === 1) {
+            marriageSelect.value = personMarriages[0].marriage.id;
+        }
 
         modal.classList.add('active');
     },
@@ -400,12 +420,18 @@ const Forms = {
             if (!Number.isFinite(childY)) childY = parentY + 150;
 
             const gender = modal.querySelector('input[name="child-gender"]:checked').value;
+            const dob = document.getElementById('child-dob').value.trim();
+            const dod = document.getElementById('child-dod').value.trim();
+            const notes = document.getElementById('child-notes').value.trim();
 
             const result = await API.createPerson({
                 name: newName,
                 gender: gender,
                 x: childX,
-                y: childY
+                y: childY,
+                date_of_birth: dob || null,
+                date_of_death: dod || null,
+                notes: notes || null
             });
             childId = result.id;
         } catch (error) {
@@ -571,7 +597,9 @@ const Forms = {
         if (!selected) return;
 
         try {
-            await API.loadTree(selected.dataset.filename);
+            const filename = selected.dataset.filename;
+            await API.loadTree(filename);
+            AppState.currentFilename = filename; // Track the loaded file
             showToast('Tree loaded', 'success');
             this.closeModal(modal);
             await loadTreeData();

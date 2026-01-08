@@ -484,6 +484,7 @@ textarea.form-control {
 
 .node-text {
     font-size: var(--node-font-size, 12px);
+    font-family: var(--node-font-family, system-ui, -apple-system, sans-serif);
     font-weight: 500;
     fill: var(--text-primary);
     text-anchor: middle;
@@ -491,6 +492,7 @@ textarea.form-control {
 
 .node-date {
     font-size: calc(var(--node-font-size, 12px) - 2px);
+    font-family: var(--node-font-family, system-ui, -apple-system, sans-serif);
     fill: var(--text-secondary);
     text-anchor: middle;
 }

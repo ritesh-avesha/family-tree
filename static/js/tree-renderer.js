@@ -166,10 +166,19 @@ const TreeRenderer = {
 
     drawMarriageLine(p1, p2, marriageId) {
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+
+        // Calculate photo offsets for both spouses
+        const photoSize = window.photoSize || 40;
+        const p1HasPhoto = p1.photo_path && p1.photo_path.trim() !== '';
+        const p2HasPhoto = p2.photo_path && p2.photo_path.trim() !== '';
+        const p1PhotoOffset = p1HasPhoto ? (photoSize + 5) / 2 : 0;
+        const p2PhotoOffset = p2HasPhoto ? (photoSize + 5) / 2 : 0;
+
+        // Connect to center of rectangle (which is shifted down if photo exists)
         line.setAttribute('x1', p1.x);
-        line.setAttribute('y1', p1.y);
+        line.setAttribute('y1', p1.y + p1PhotoOffset);
         line.setAttribute('x2', p2.x);
-        line.setAttribute('y2', p2.y);
+        line.setAttribute('y2', p2.y + p2PhotoOffset);
         line.setAttribute('class', 'marriage-line');
         line.setAttribute('data-marriage-id', marriageId);
         this.linesLayer.appendChild(line);
@@ -178,18 +187,26 @@ const TreeRenderer = {
     drawChildLine(parent, child, marriageCenterX, marriageCenterY) {
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
+        // Check if parent/child have photos for offset calculation
+        const parentHasPhoto = parent.photo_path && parent.photo_path.trim() !== '';
+        const childHasPhoto = child.photo_path && child.photo_path.trim() !== '';
+        const photoSize = window.photoSize || 40;
+        const parentPhotoOffset = parentHasPhoto ? (photoSize + 5) / 2 : 0;
+        const childPhotoOffset = childHasPhoto ? photoSize + 5 : 0;
+
         let startX, startY;
 
         if (marriageCenterX !== null && marriageCenterY !== null) {
             startX = marriageCenterX;
-            startY = marriageCenterY;
+            startY = marriageCenterY + parentPhotoOffset;
         } else {
             startX = parent.x;
-            startY = parent.y + this.nodeHeight / 2;
+            startY = parent.y + this.nodeHeight / 2 + parentPhotoOffset;
         }
 
         const endX = child.x;
-        const endY = child.y - this.nodeHeight / 2;
+        // End at top of photo if present, otherwise top of rectangle
+        const endY = child.y - this.nodeHeight / 2 - childPhotoOffset / 2;
         const midY = (startY + endY) / 2;
         const d = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
         path.setAttribute('d', d);
@@ -200,32 +217,76 @@ const TreeRenderer = {
 
     drawNode(person) {
         const isSelected = AppState.selectedPersonIds.has(person.id) || AppState.selectedPersonId === person.id;
+        const hasPhoto = person.photo_path && person.photo_path.trim() !== '';
+        const photoSize = window.photoSize || 40; // Use saved photo size or default
+        const photoOffset = hasPhoto ? photoSize + 5 : 0; // Extra height for photo
+
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('class', `node ${isSelected ? 'node-selected' : ''}`);
         g.setAttribute('data-person-id', person.id);
-        g.setAttribute('transform', `translate(${person.x - this.nodeWidth / 2}, ${person.y - this.nodeHeight / 2})`);
+        g.setAttribute('transform', `translate(${person.x - this.nodeWidth / 2}, ${person.y - this.nodeHeight / 2 - photoOffset / 2})`);
 
-        // Rectangle
+        // Photo (circular, above the rectangle)
+        if (hasPhoto) {
+            // Get just the filename from photo_path
+            const photoFilename = person.photo_path.split('/').pop();
+
+            // Use foreignObject for better image rendering
+            const foreignObj = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+            foreignObj.setAttribute('x', (this.nodeWidth - photoSize) / 2);
+            foreignObj.setAttribute('y', 0);
+            foreignObj.setAttribute('width', photoSize);
+            foreignObj.setAttribute('height', photoSize);
+
+            const imgContainer = document.createElement('div');
+            imgContainer.style.cssText = `
+                width: ${photoSize}px;
+                height: ${photoSize}px;
+                border-radius: 50%;
+                overflow: hidden;
+                border: 2px solid #999;
+                background: #fff;
+            `;
+
+            const img = document.createElement('img');
+            img.src = `/uploads/${photoFilename}`;
+            img.style.cssText = `
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            `;
+            img.onerror = () => {
+                // Hide if image fails to load
+                foreignObj.style.display = 'none';
+            };
+
+            imgContainer.appendChild(img);
+            foreignObj.appendChild(imgContainer);
+            g.appendChild(foreignObj);
+        }
+
+        // Rectangle (shifted down if photo exists)
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('y', photoOffset);
         rect.setAttribute('width', this.nodeWidth);
         rect.setAttribute('height', this.nodeHeight);
         rect.setAttribute('rx', '4');
         rect.setAttribute('class', `node-rect ${person.gender}`);
         g.appendChild(rect);
 
-        // Name
+        // Name (shifted down if photo exists)
         const name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         name.setAttribute('x', this.nodeWidth / 2);
-        name.setAttribute('y', 24);
+        name.setAttribute('y', photoOffset + 24);
         name.setAttribute('class', 'node-text');
         name.textContent = this.truncateName(person.name, 16);
         g.appendChild(name);
 
-        // Dates
+        // Dates (shifted down if photo exists)
         if (person.date_of_birth || person.date_of_death) {
             const dates = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             dates.setAttribute('x', this.nodeWidth / 2);
-            dates.setAttribute('y', 42);
+            dates.setAttribute('y', photoOffset + 42);
             dates.setAttribute('class', 'node-date');
 
             let dateText = '';
