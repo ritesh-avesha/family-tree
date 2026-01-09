@@ -222,8 +222,9 @@ async def import_json(tree_data: FamilyTree, request: Request, response: Respons
                 person.photo_path = None
                 person.photo_base64 = None
     
-    tree_state.save_state("import_json")
-    tree_state.tree = tree_data
+    tree_state.save_state("import_json")  # Save old state for undo
+    tree_state.tree = tree_data  # Then set the imported tree
+    tree_state.touch()  # Update session timestamp
     
     logger.info("Imported tree with %d persons", len(tree_data.persons))
     return {"status": "imported", "persons": len(tree_data.persons)}

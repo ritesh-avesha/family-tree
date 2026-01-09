@@ -89,6 +89,74 @@ const TreeRenderer = {
                 this.svg.style.cursor = 'grab';
             }
         });
+
+        // ========== TOUCH EVENTS FOR MOBILE ==========
+
+        // Touch pan on canvas
+        this.svg.addEventListener('touchstart', (e) => {
+            // Only handle single finger touch for panning
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
+                // Only pan on empty space (not on nodes)
+                if (target === this.svg || target.id === 'canvas-group' ||
+                    target.tagName === 'line' || target.tagName === 'path' ||
+                    target.closest('#lines-layer')) {
+
+                    e.preventDefault();
+                    this.isPanning = true;
+                    this.panStart = {
+                        x: touch.clientX - this.transform.x,
+                        y: touch.clientY - this.transform.y
+                    };
+                }
+            }
+            // Two finger touch for pinch zoom
+            else if (e.touches.length === 2) {
+                e.preventDefault();
+                this.isPanning = false;
+                this.pinchStart = this.getPinchDistance(e.touches);
+                this.pinchStartScale = this.transform.scale;
+            }
+        }, { passive: false });
+
+        this.svg.addEventListener('touchmove', (e) => {
+            if (this.isPanning && e.touches.length === 1) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                this.transform.x = touch.clientX - this.panStart.x;
+                this.transform.y = touch.clientY - this.panStart.y;
+                this.applyTransform();
+            }
+            // Pinch zoom
+            else if (e.touches.length === 2 && this.pinchStart) {
+                e.preventDefault();
+                const currentDistance = this.getPinchDistance(e.touches);
+                const scale = (currentDistance / this.pinchStart) * this.pinchStartScale;
+                this.transform.scale = Math.min(Math.max(scale, 0.2), 3);
+                this.applyTransform();
+            }
+        }, { passive: false });
+
+        this.svg.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) {
+                this.isPanning = false;
+                this.pinchStart = null;
+            }
+        });
+
+        this.svg.addEventListener('touchcancel', () => {
+            this.isPanning = false;
+            this.pinchStart = null;
+        });
+    },
+
+    // Helper for pinch zoom
+    getPinchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
     },
 
     initDrag() {
@@ -96,6 +164,10 @@ const TreeRenderer = {
     },
 
     applyTransform() {
+        if (!this.canvasGroup) {
+            console.warn('Canvas group not initialized');
+            return;
+        }
         this.canvasGroup.setAttribute('transform',
             `translate(${this.transform.x}, ${this.transform.y}) scale(${this.transform.scale})`
         );
@@ -103,6 +175,10 @@ const TreeRenderer = {
 
     centerView() {
         const container = document.getElementById('canvas-container');
+        if (!container) {
+            console.warn('Canvas container not found');
+            return;
+        }
         const rect = container.getBoundingClientRect();
         this.transform.x = rect.width / 2;
         this.transform.y = 100;
@@ -111,6 +187,20 @@ const TreeRenderer = {
     },
 
     render() {
+        // Ensure elements are initialized
+        if (!this.linesLayer || !this.nodesLayer) {
+            console.warn('Tree renderer layers not initialized, attempting to initialize...');
+            this.svg = document.getElementById('tree-canvas');
+            this.canvasGroup = document.getElementById('canvas-group');
+            this.linesLayer = document.getElementById('lines-layer');
+            this.nodesLayer = document.getElementById('nodes-layer');
+
+            if (!this.linesLayer || !this.nodesLayer) {
+                console.error('Failed to initialize tree renderer layers');
+                return;
+            }
+        }
+
         const persons = AppState.tree.persons;
         const marriages = AppState.tree.marriages;
         const parentChild = AppState.tree.parent_child;
@@ -360,7 +450,7 @@ const TreeRenderer = {
             g.appendChild(dates);
         }
 
-        // Event listeners
+        // Event listeners - Mouse
         g.addEventListener('mousedown', (e) => {
             e.stopPropagation();
 
@@ -387,7 +477,24 @@ const TreeRenderer = {
             this.startDrag(person.id, e);
         });
 
+        // Event listeners - Touch (for mobile)
+        g.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            e.preventDefault(); // Prevent scrolling when touching nodes
 
+            const touch = e.touches[0];
+
+            // Select the node
+            if (!AppState.selectedPersonIds.has(person.id)) {
+                AppState.selectedPersonIds.clear();
+                AppState.selectedPersonIds.add(person.id);
+            }
+            AppState.selectedPersonId = person.id;
+            this.render();
+
+            // Start touch drag
+            this.startTouchDrag(person.id, touch);
+        }, { passive: false });
 
         g.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -492,6 +599,96 @@ const TreeRenderer = {
 
         document.addEventListener('mousemove', moveHandler);
         document.addEventListener('mouseup', upHandler);
+    },
+
+    // Touch-based node dragging for mobile
+    startTouchDrag(personId, touch) {
+        this.isDragging = false;
+        this.draggedNodeId = personId;
+
+        const rect = this.svg.getBoundingClientRect();
+        const startTouchX = (touch.clientX - rect.left - this.transform.x) / this.transform.scale;
+        const startTouchY = (touch.clientY - rect.top - this.transform.y) / this.transform.scale;
+
+        // Store initial positions of all selected nodes
+        const initialPositions = new Map();
+        AppState.selectedPersonIds.forEach(id => {
+            const p = AppState.tree.persons[id];
+            if (p) {
+                initialPositions.set(id, { x: p.x, y: p.y });
+            }
+        });
+
+        const touchMoveHandler = (e) => {
+            if (e.touches.length !== 1) return;
+
+            const touch = e.touches[0];
+            const rect = this.svg.getBoundingClientRect();
+            const currentTouchX = (touch.clientX - rect.left - this.transform.x) / this.transform.scale;
+            const currentTouchY = (touch.clientY - rect.top - this.transform.y) / this.transform.scale;
+
+            const dx = currentTouchX - startTouchX;
+            const dy = currentTouchY - startTouchY;
+
+            // Check if actually dragging (moved more than 5 pixels)
+            if (!this.isDragging) {
+                if (Math.sqrt(dx * dx + dy * dy) > 5) {
+                    this.isDragging = true;
+                }
+            }
+
+            if (this.isDragging) {
+                e.preventDefault();
+                // Update all selected nodes
+                initialPositions.forEach((pos, id) => {
+                    if (AppState.tree.persons[id]) {
+                        AppState.tree.persons[id].x = pos.x + dx;
+                        AppState.tree.persons[id].y = pos.y + dy;
+                    }
+                });
+                this.render();
+            }
+        };
+
+        const touchEndHandler = async () => {
+            document.removeEventListener('touchmove', touchMoveHandler);
+            document.removeEventListener('touchend', touchEndHandler);
+            document.removeEventListener('touchcancel', touchEndHandler);
+
+            if (this.isDragging) {
+                // Save positions to server
+                try {
+                    const updates = [];
+                    AppState.selectedPersonIds.forEach(id => {
+                        const p = AppState.tree.persons[id];
+                        if (p) {
+                            updates.push({ id: p.id, x: p.x, y: p.y });
+                        }
+                    });
+
+                    if (updates.length > 0) {
+                        await API.updatePositions(updates);
+                    }
+                } catch (error) {
+                    console.error('Failed to save positions:', error);
+                    showToast('Failed to save positions', 'error');
+                }
+            } else {
+                // Tap (no drag) - show details
+                if (AppState.selectedPersonIds.size <= 1) {
+                    if (typeof showPersonDetails === 'function') {
+                        showPersonDetails(personId);
+                    }
+                }
+            }
+
+            this.draggedNodeId = null;
+            setTimeout(() => { this.isDragging = false; }, 0);
+        };
+
+        document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        document.addEventListener('touchend', touchEndHandler);
+        document.addEventListener('touchcancel', touchEndHandler);
     }
 };
 

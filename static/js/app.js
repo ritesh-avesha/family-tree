@@ -26,7 +26,8 @@ const API = {
             method,
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            credentials: 'same-origin'  // Include session cookies
         };
 
         if (data) {
@@ -232,21 +233,41 @@ function initDropdowns() {
         const btn = dropdown.querySelector('.btn');
         const menu = dropdown.querySelector('.dropdown-menu');
 
-        btn.addEventListener('click', (e) => {
+        // Handle both click and touch
+        const toggleMenu = (e) => {
+            e.preventDefault();
             e.stopPropagation();
             // Close other dropdowns
             document.querySelectorAll('.dropdown-menu.active').forEach(m => {
                 if (m !== menu) m.classList.remove('active');
             });
             menu.classList.toggle('active');
+        };
+
+        btn.addEventListener('click', toggleMenu);
+
+        // Close dropdown when item is clicked (for mobile)
+        menu.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                menu.classList.remove('active');
+            });
         });
     });
 
-    // Close dropdowns on outside click
+    // Close dropdowns on outside click/touch
     document.addEventListener('click', () => {
         document.querySelectorAll('.dropdown-menu.active').forEach(m => {
             m.classList.remove('active');
         });
+    });
+
+    // Also close on touch outside for mobile
+    document.addEventListener('touchend', (e) => {
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-menu.active').forEach(m => {
+                m.classList.remove('active');
+            });
+        }
     });
 }
 
@@ -334,7 +355,9 @@ function initToolbar() {
     document.getElementById('export-json-btn').addEventListener('click', async () => {
         try {
             updateStatus('Exporting...');
-            const response = await fetch('/api/tree/export-json');
+            const response = await fetch('/api/tree/export-json', {
+                credentials: 'same-origin'
+            });
             if (!response.ok) throw new Error('Export failed');
 
             const data = await response.json();
@@ -389,7 +412,12 @@ function initToolbar() {
 
                 const response = await API.request('POST', '/tree/import-json', data);
                 await loadTreeData();
-                TreeRenderer.centerView();
+
+                // Ensure renderer is ready before centering
+                if (TreeRenderer.svg) {
+                    TreeRenderer.centerView();
+                }
+
                 showToast(`Imported ${response.persons} persons`, 'success');
                 updateStatus('Ready');
             } catch (error) {

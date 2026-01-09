@@ -646,3 +646,304 @@ textarea.form-control {
     background: var(--accent-color);
     color: white;
 }
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets and smaller (max-width: 1024px) */
+@media (max-width: 1024px) {
+    .side-panel {
+        width: 280px;
+    }
+
+    .toolbar-title {
+        font-size: 16px;
+        margin-right: 10px;
+    }
+}
+
+/* Mobile devices (max-width: 768px) */
+@media (max-width: 768px) {
+
+    /* Toolbar - Stack into hamburger-friendly layout */
+    .toolbar {
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        gap: 8px;
+    }
+
+    .toolbar-group {
+        gap: 4px;
+    }
+
+    .toolbar-title {
+        font-size: 14px;
+        margin-right: 8px;
+    }
+
+    .toolbar-divider {
+        display: none;
+    }
+
+    /* Smaller buttons on mobile */
+    .btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .btn-icon {
+        padding: 6px 8px;
+        min-width: 32px;
+    }
+
+    /* Hide some toolbar buttons on mobile - show only essential ones */
+    #layout-dropdown,
+    #auto-layout-btn {
+        display: none;
+    }
+
+    /* Side panel as BOTTOM SHEET on mobile */
+    .side-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 60vh;
+        /* Takes 60% of viewport height */
+        max-height: 400px;
+        z-index: 150;
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+    }
+
+    .side-panel:not(.collapsed) {
+        transform: translateY(0);
+    }
+
+    .side-panel.collapsed {
+        transform: translateY(100%);
+    }
+
+    /* Drag handle indicator for bottom sheet */
+    .side-panel .panel-header::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        background: var(--border-strong);
+        border-radius: 2px;
+    }
+
+    .side-panel .panel-header {
+        position: relative;
+        padding-top: 20px;
+        /* Extra space for drag handle */
+    }
+
+    /* Modal full screen on mobile */
+    .modal {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        border-radius: 0;
+    }
+
+    .modal-body {
+        max-height: calc(100vh - 140px);
+    }
+
+    /* Dropdown menu positioning for mobile */
+    .dropdown-menu {
+        position: absolute;
+        z-index: 300;
+    }
+
+    /* Toast notifications at bottom center on mobile */
+    .toast-container {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        align-items: center;
+    }
+
+    .toast {
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+    }
+
+    /* Context menu positioning */
+    .context-menu {
+        left: 10px !important;
+        right: 10px !important;
+        width: auto;
+    }
+
+    /* Status bar */
+    .status-bar {
+        padding: 4px 12px;
+        font-size: 11px;
+    }
+
+    /* Form adjustments */
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .radio-group {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    /* Empty state */
+    .empty-state {
+        padding: 20px;
+    }
+
+    .empty-state h3 {
+        font-size: 16px;
+    }
+
+    .empty-state p {
+        font-size: 13px;
+    }
+}
+
+/* Small mobile devices (max-width: 480px) */
+@media (max-width: 480px) {
+    .toolbar {
+        padding: 6px 8px;
+    }
+
+    .toolbar-title {
+        font-size: 13px;
+        margin-right: 4px;
+    }
+
+    /* Stack toolbar groups vertically */
+    .toolbar {
+        justify-content: center;
+    }
+
+    .toolbar-group:first-child {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .toolbar-group:last-child {
+        width: 100%;
+        justify-content: center;
+        border-top: 1px solid var(--border-color);
+        padding-top: 6px;
+        margin-top: 2px;
+    }
+
+    /* Even smaller buttons */
+    .btn {
+        padding: 5px 8px;
+        font-size: 11px;
+    }
+
+    /* Hide text on some buttons, show only icons */
+    #file-btn,
+    #export-btn,
+    #settings-btn {
+        padding: 6px 10px;
+    }
+
+    /* Dropdown menu full width on small mobile */
+    .dropdown-menu {
+        position: fixed;
+        top: auto;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto;
+        min-width: auto;
+        z-index: 300;
+        margin-top: 8px;
+    }
+
+    /* Ensure dropdown appears below the button */
+    .dropdown {
+        position: static;
+    }
+
+    .dropdown-menu.active {
+        display: block;
+    }
+
+    /* Panel header */
+    .panel-header {
+        padding: 12px;
+    }
+
+    .panel-content {
+        padding: 12px;
+    }
+
+    /* Modal on small screens */
+    .modal-header {
+        padding: 12px 16px;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    .modal-footer {
+        padding: 12px 16px;
+    }
+}
+
+/* Touch-friendly: larger tap targets */
+@media (hover: none) and (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .dropdown-item,
+    .context-menu-item {
+        padding: 14px 16px;
+        min-height: 48px;
+    }
+
+    .file-item,
+    .person-item {
+        padding: 14px 16px;
+        min-height: 48px;
+    }
+
+    .form-control {
+        min-height: 44px;
+        font-size: 16px;
+        /* Prevents iOS zoom on focus */
+    }
+
+    .radio-label {
+        min-height: 44px;
+        padding: 8px 0;
+    }
+}
+
+/* Landscape orientation on mobile - hide status bar for more space */
+@media (max-width: 768px) and (orientation: landscape) {
+    .status-bar {
+        display: none;
+    }
+
+    .modal-body {
+        max-height: calc(100vh - 100px);
+    }
+}
