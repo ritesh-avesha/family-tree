@@ -2,7 +2,7 @@
 Relationship API endpoints (marriages and parent-child).
 """
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from models import Marriage, MarriageCreate, ParentChild, ParentChildCreate
 
@@ -10,21 +10,31 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["relationships"])
 
-# In-memory storage - will be managed by tree_state
-tree_state = None
+# Session management functions (set by main.py)
+session_manager = None
+get_session_from_request = None
+set_session_cookie = None
 
 
-def set_tree_state(state):
-    """Set the shared tree state."""
-    global tree_state
-    tree_state = state
+def set_session_manager(manager, get_session_func, set_cookie_func):
+    """Set the session manager and helper functions."""
+    global session_manager, get_session_from_request, set_session_cookie
+    session_manager = manager
+    get_session_from_request = get_session_func
+    set_session_cookie = set_cookie_func
+
+
+def get_tree_state(request: Request, response: Response):
+    """Get tree state for current session."""
+    session_id, tree_state = get_session_from_request(request)
+    set_session_cookie(response, session_id)
+    return tree_state
 
 
 @router.post("/marriages", response_model=Marriage)
-async def create_marriage(marriage_data: MarriageCreate):
+async def create_marriage(marriage_data: MarriageCreate, request: Request, response: Response):
     """Create a new marriage between two persons."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     # Validate persons exist
     if marriage_data.spouse1_id not in tree_state.tree.persons:
@@ -54,19 +64,16 @@ async def create_marriage(marriage_data: MarriageCreate):
 
 
 @router.get("/marriages", response_model=list[Marriage])
-async def list_marriages():
+async def list_marriages(request: Request, response: Response):
     """List all marriages."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
-    
+    tree_state = get_tree_state(request, response)
     return list(tree_state.tree.marriages.values())
 
 
 @router.put("/marriages/{marriage_id}", response_model=Marriage)
-async def update_marriage(marriage_id: str, data: dict):
+async def update_marriage(marriage_id: str, data: dict, request: Request, response: Response):
     """Update marriage details."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if marriage_id not in tree_state.tree.marriages:
         raise HTTPException(status_code=404, detail="Marriage not found")
@@ -84,10 +91,9 @@ async def update_marriage(marriage_id: str, data: dict):
 
 
 @router.delete("/marriages/{marriage_id}")
-async def delete_marriage(marriage_id: str):
+async def delete_marriage(marriage_id: str, request: Request, response: Response):
     """Delete a marriage."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if marriage_id not in tree_state.tree.marriages:
         raise HTTPException(status_code=404, detail="Marriage not found")
@@ -108,10 +114,9 @@ async def delete_marriage(marriage_id: str):
 
 
 @router.post("/children", response_model=ParentChild)
-async def add_child(relation: ParentChildCreate):
+async def add_child(relation: ParentChildCreate, request: Request, response: Response):
     """Add a child to a parent (optionally linked to a marriage)."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     # Validate persons exist
     if relation.parent_id not in tree_state.tree.persons:
@@ -142,19 +147,16 @@ async def add_child(relation: ParentChildCreate):
 
 
 @router.get("/children", response_model=list[ParentChild])
-async def list_parent_child():
+async def list_parent_child(request: Request, response: Response):
     """List all parent-child relationships."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
-    
+    tree_state = get_tree_state(request, response)
     return tree_state.tree.parent_child
 
 
 @router.delete("/children/{parent_id}/{child_id}")
-async def remove_child(parent_id: str, child_id: str):
+async def remove_child(parent_id: str, child_id: str, request: Request, response: Response):
     """Remove a parent-child relationship."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     original_len = len(tree_state.tree.parent_child)
     

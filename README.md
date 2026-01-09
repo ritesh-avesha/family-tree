@@ -1,6 +1,6 @@
 # Family Tree Builder
 
-A modern, web-based tool for creating, visualizing, and managing family trees.
+A modern, web-based tool for creating, visualizing, and managing family trees. (Note: This is created via LLM via "vibecoding", mostly with Claude Opus 4.5 in Antigravity)
 
 ## 🚀 Features
 - **Interactive Visualization**: Build and explore family trees in your browser.

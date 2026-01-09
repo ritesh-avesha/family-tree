@@ -2,7 +2,7 @@
 Person CRUD API endpoints.
 """
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from models import Person, PersonCreate, PersonUpdate, PositionUpdate
 
@@ -10,21 +10,31 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/persons", tags=["persons"])
 
-# In-memory storage - will be managed by tree_state
-tree_state = None
+# Session management functions (set by main.py)
+session_manager = None
+get_session_from_request = None
+set_session_cookie = None
 
 
-def set_tree_state(state):
-    """Set the shared tree state."""
-    global tree_state
-    tree_state = state
+def set_session_manager(manager, get_session_func, set_cookie_func):
+    """Set the session manager and helper functions."""
+    global session_manager, get_session_from_request, set_session_cookie
+    session_manager = manager
+    get_session_from_request = get_session_func
+    set_session_cookie = set_cookie_func
+
+
+def get_tree_state(request: Request, response: Response):
+    """Get tree state for current session."""
+    session_id, tree_state = get_session_from_request(request)
+    set_session_cookie(response, session_id)
+    return tree_state
 
 
 @router.post("", response_model=Person)
-async def create_person(person_data: PersonCreate):
+async def create_person(person_data: PersonCreate, request: Request, response: Response):
     """Create a new person."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     person = Person(**person_data.model_dump())
     tree_state.save_state("create_person")
@@ -34,10 +44,9 @@ async def create_person(person_data: PersonCreate):
 
 
 @router.get("/{person_id}", response_model=Person)
-async def get_person(person_id: str):
+async def get_person(person_id: str, request: Request, response: Response):
     """Get a person by ID."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if person_id not in tree_state.tree.persons:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -46,19 +55,16 @@ async def get_person(person_id: str):
 
 
 @router.get("", response_model=list[Person])
-async def list_persons():
+async def list_persons(request: Request, response: Response):
     """List all persons."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
-    
+    tree_state = get_tree_state(request, response)
     return list(tree_state.tree.persons.values())
 
 
 @router.put("/{person_id}", response_model=Person)
-async def update_person(person_id: str, person_data: PersonUpdate):
+async def update_person(person_id: str, person_data: PersonUpdate, request: Request, response: Response):
     """Update a person."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if person_id not in tree_state.tree.persons:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -76,10 +82,9 @@ async def update_person(person_id: str, person_data: PersonUpdate):
 
 
 @router.patch("/{person_id}/position", response_model=Person)
-async def update_position(person_id: str, position: PositionUpdate):
+async def update_position(person_id: str, position: PositionUpdate, request: Request, response: Response):
     """Update just the position of a person."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if person_id not in tree_state.tree.persons:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -90,17 +95,15 @@ async def update_position(person_id: str, position: PositionUpdate):
     person.y = position.y
     tree_state.tree.persons[person_id] = person
     
-    # Persist to disk
     tree_state.force_save()
     
     return person
 
 
 @router.patch("/positions", response_model=dict)
-async def update_positions(positions: list[dict]):
+async def update_positions(positions: list[dict], request: Request, response: Response):
     """Update positions for multiple persons."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     count = 0
     for pos in positions:
@@ -118,10 +121,9 @@ async def update_positions(positions: list[dict]):
 
 
 @router.delete("/{person_id}")
-async def delete_person(person_id: str):
+async def delete_person(person_id: str, request: Request, response: Response):
     """Delete a person and all their relationships."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if person_id not in tree_state.tree.persons:
         raise HTTPException(status_code=404, detail="Person not found")

@@ -1,5 +1,5 @@
 """
-Tree operations API endpoints (save/load, undo/redo, export, layout).
+Tree operations API endpoints (undo/redo, export, layout, JSON import/export).
 """
 import json
 import logging
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 from copy import deepcopy
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 
 from models import FamilyTree, ExportOptions, LayoutOptions, Person
@@ -19,24 +19,33 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tree", tags=["tree"])
 
-DATA_DIR = Path("data")
 UPLOADS_DIR = Path("uploads")
 
-# In-memory storage - will be managed by tree_state
-tree_state = None
+# Session management functions (set by main.py)
+session_manager = None
+get_session_from_request = None
+set_session_cookie = None
 
 
-def set_tree_state(state):
-    """Set the shared tree state."""
-    global tree_state
-    tree_state = state
+def set_session_manager(manager, get_session_func, set_cookie_func):
+    """Set the session manager and helper functions."""
+    global session_manager, get_session_from_request, set_session_cookie
+    session_manager = manager
+    get_session_from_request = get_session_func
+    set_session_cookie = set_cookie_func
+
+
+def get_tree_state(request: Request, response: Response):
+    """Get tree state for current session."""
+    session_id, tree_state = get_session_from_request(request)
+    set_session_cookie(response, session_id)
+    return tree_state
 
 
 @router.get("")
-async def get_tree():
+async def get_tree(request: Request, response: Response):
     """Get the entire family tree."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     return {
         "tree": tree_state.tree.model_dump(),
@@ -45,74 +54,10 @@ async def get_tree():
     }
 
 
-@router.post("/save")
-async def save_tree(filename: Optional[str] = None):
-    """Save the tree to a JSON file."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
-    
-    DATA_DIR.mkdir(exist_ok=True)
-    
-    if not filename:
-        filename = f"family_tree_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    
-    if not filename.endswith(".json"):
-        filename += ".json"
-    
-    filepath = DATA_DIR / filename
-    
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(tree_state.tree.model_dump(), f, indent=2, ensure_ascii=False)
-    
-    logger.info("Saved tree to: %s", filepath)
-    return {"status": "saved", "filename": filename, "path": str(filepath)}
-
-
-@router.post("/load")
-async def load_tree(filename: str):
-    """Load a tree from a JSON file."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
-    
-    filepath = DATA_DIR / filename
-    
-    if not filepath.exists():
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        
-        tree_state.save_state("load_tree")
-        tree_state.tree = FamilyTree(**data)
-        logger.info("Loaded tree from: %s", filepath)
-        return {"status": "loaded", "filename": filename}
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
-
-
-@router.get("/files")
-async def list_saved_files():
-    """List all saved tree files."""
-    DATA_DIR.mkdir(exist_ok=True)
-    files = []
-    
-    for f in DATA_DIR.glob("*.json"):
-        stat = f.stat()
-        files.append({
-            "filename": f.name,
-            "size": stat.st_size,
-            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
-        })
-    
-    return sorted(files, key=lambda x: x["modified"], reverse=True)
-
-
 @router.post("/new")
-async def new_tree():
+async def new_tree(request: Request, response: Response):
     """Create a new empty tree."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     tree_state.save_state("new_tree")
     tree_state.tree = FamilyTree()
@@ -121,10 +66,9 @@ async def new_tree():
 
 
 @router.post("/undo")
-async def undo():
+async def undo(request: Request, response: Response):
     """Undo the last action."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if not tree_state.undo():
         raise HTTPException(status_code=400, detail="Nothing to undo")
@@ -137,10 +81,9 @@ async def undo():
 
 
 @router.post("/redo")
-async def redo():
+async def redo(request: Request, response: Response):
     """Redo the last undone action."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if not tree_state.redo():
         raise HTTPException(status_code=400, detail="Nothing to redo")
@@ -153,10 +96,9 @@ async def redo():
 
 
 @router.post("/export")
-async def export_tree(options: ExportOptions):
+async def export_tree(options: ExportOptions, request: Request, response: Response):
     """Export the tree as an image or PDF."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     from services.export_service import export_tree as do_export
     
@@ -173,10 +115,9 @@ async def export_tree(options: ExportOptions):
 
 
 @router.post("/layout")
-async def auto_layout(options: LayoutOptions):
+async def auto_layout(options: LayoutOptions, request: Request, response: Response):
     """Auto-arrange the tree with the specified layout."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     if options.root_person_id not in tree_state.tree.persons:
         raise HTTPException(status_code=404, detail="Root person not found")
@@ -197,8 +138,11 @@ async def auto_layout(options: LayoutOptions):
 
 
 @router.post("/upload-photo")
-async def upload_photo(file: UploadFile = File(...)):
+async def upload_photo(request: Request, response: Response, file: UploadFile = File(...)):
     """Upload a photo file."""
+    # Get session to ensure cookie is set
+    get_tree_state(request, response)
+    
     UPLOADS_DIR.mkdir(exist_ok=True)
     
     # Generate unique filename
@@ -215,10 +159,9 @@ async def upload_photo(file: UploadFile = File(...)):
 
 
 @router.get("/export-json")
-async def export_json():
+async def export_json(request: Request, response: Response):
     """Export tree as JSON with embedded base64 photos for client download."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     # Create a deep copy to embed photos
     export_data = deepcopy(tree_state.tree.model_dump())
@@ -243,10 +186,9 @@ async def export_json():
 
 
 @router.post("/import-json")
-async def import_json(tree_data: FamilyTree):
+async def import_json(tree_data: FamilyTree, request: Request, response: Response):
     """Import tree from client-uploaded JSON, restoring base64 photos."""
-    if tree_state is None:
-        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    tree_state = get_tree_state(request, response)
     
     UPLOADS_DIR.mkdir(exist_ok=True)
     
