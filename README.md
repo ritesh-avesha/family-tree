@@ -4,10 +4,10 @@ A modern, web-based tool for creating, visualizing, and managing family trees.
 
 ## 🚀 Features
 - **Interactive Visualization**: Build and explore family trees in your browser.
-- **Auto-save**: Progress is automatically persisted to `data/autosave.json`.
+- **JSON Export/Import**: Save your tree as a JSON file with embedded photos, load it anytime.
 - **Undo/Redo**: Robust state management to revert or redo changes.
 - **Exports**: Export trees to high-quality formats for sharing (PDF, PNG).
-- **Media Support**: Upload photos for family members.
+- **Media Support**: Upload photos for family members (embedded in exported JSON).
 
 ## 🛠️ Setup & Installation
 
@@ -29,13 +29,29 @@ uvicorn main:app --reload
 
 Once running, access the app at: **[http://localhost:8000](http://localhost:8000)**
 
+## ☁️ Cloud Deployment (Free)
+
+### Deploy to Render.com
+1. Push your code to GitHub
+2. Sign up at [render.com](https://render.com)
+3. Create a new "Web Service" and connect your GitHub repo
+4. Render will auto-detect `render.yaml` and deploy
+
+### Deploy with Docker
+```bash
+docker build -t family-tree .
+docker run -p 8000:8000 family-tree
+```
+
+> **Note**: Cloud deployments are stateless. Use File → Export JSON to save your work, and File → Import JSON to restore it.
+
 ## 📂 Project Structure
 - `api/`: API endpoints for persons, relationships, and tree operations.
 - `static/`: Frontend application (HTML/JS/CSS).
-- `data/`: JSON storage for tree data.
 - `services/`: Business logic and export handlers.
 - `models.py`: Data models and validation.
 - `main.py`: Application entry point and state management.
 
 ## 📄 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

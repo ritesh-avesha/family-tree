@@ -34,23 +34,24 @@ class TreeState:
 
     def _load_from_disk(self):
         """Load state from autosave file if exists."""
-        if self.AUTOSAVE_FILE.exists():
-            try:
+        try:
+            if self.AUTOSAVE_FILE.exists():
                 with open(self.AUTOSAVE_FILE, "r") as f:
                     json_data = f.read()
                     if json_data.strip():  # Check if not empty
                         self.tree = FamilyTree.model_validate_json(json_data)
                         logger.info("Loaded autosave from %s", self.AUTOSAVE_FILE)
-            except Exception as e:
-                logger.error("Failed to load autosave: %s", e)
+        except Exception as e:
+            logger.warning("Could not load autosave (running stateless): %s", e)
 
     def _save_to_disk(self):
-        """Save current state to disk."""
+        """Save current state to disk (skipped if filesystem is read-only)."""
         try:
+            self.AUTOSAVE_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(self.AUTOSAVE_FILE, "w") as f:
                 f.write(self.tree.model_dump_json(indent=2))
         except Exception as e:
-            logger.error("Failed to autosave: %s", e)
+            logger.debug("Disk save skipped (stateless mode): %s", e)
 
     def save_state(self, action: str):
         """Save current state for undo and persist to disk."""

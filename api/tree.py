@@ -4,14 +4,16 @@ Tree operations API endpoints (save/load, undo/redo, export, layout).
 import json
 import logging
 import os
+import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from copy import deepcopy
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
-from models import FamilyTree, ExportOptions, LayoutOptions
+from models import FamilyTree, ExportOptions, LayoutOptions, Person
 
 logger = logging.getLogger(__name__)
 
@@ -210,3 +212,76 @@ async def upload_photo(file: UploadFile = File(...)):
     
     logger.info("Uploaded photo: %s", filepath)
     return {"status": "uploaded", "path": str(filepath), "filename": filename}
+
+
+@router.get("/export-json")
+async def export_json():
+    """Export tree as JSON with embedded base64 photos for client download."""
+    if tree_state is None:
+        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    
+    # Create a deep copy to embed photos
+    export_data = deepcopy(tree_state.tree.model_dump())
+    
+    # Embed photos as base64
+    for person_id, person in export_data["persons"].items():
+        if person.get("photo_path"):
+            photo_path = UPLOADS_DIR / os.path.basename(person["photo_path"])
+            if photo_path.exists():
+                try:
+                    with open(photo_path, "rb") as f:
+                        photo_data = f.read()
+                    # Detect mime type from extension
+                    ext = photo_path.suffix.lower()
+                    mime_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp"}
+                    mime = mime_types.get(ext, "image/jpeg")
+                    person["photo_base64"] = f"data:{mime};base64,{base64.b64encode(photo_data).decode('utf-8')}"
+                except Exception as e:
+                    logger.warning("Failed to embed photo %s: %s", photo_path, e)
+    
+    return JSONResponse(content=export_data)
+
+
+@router.post("/import-json")
+async def import_json(tree_data: FamilyTree):
+    """Import tree from client-uploaded JSON, restoring base64 photos."""
+    if tree_state is None:
+        raise HTTPException(status_code=500, detail="Tree state not initialized")
+    
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    
+    # Process base64 photos - save to disk and update photo_path
+    for person_id, person in tree_data.persons.items():
+        if person.photo_base64:
+            try:
+                # Parse data URL: data:image/jpeg;base64,/9j/4AAQ...
+                if person.photo_base64.startswith("data:"):
+                    header, data = person.photo_base64.split(",", 1)
+                    # Extract extension from mime type
+                    mime = header.split(";")[0].split(":")[1]
+                    ext_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp"}
+                    ext = ext_map.get(mime, ".jpg")
+                else:
+                    data = person.photo_base64
+                    ext = ".jpg"
+                
+                # Decode and save
+                photo_bytes = base64.b64decode(data)
+                filename = f"{person_id}{ext}"
+                filepath = UPLOADS_DIR / filename
+                with open(filepath, "wb") as f:
+                    f.write(photo_bytes)
+                
+                person.photo_path = f"uploads/{filename}"
+                person.photo_base64 = None  # Clear base64 after saving
+                logger.info("Restored photo for %s: %s", person.name, filepath)
+            except Exception as e:
+                logger.warning("Failed to restore photo for %s: %s", person.name, e)
+                person.photo_path = None
+                person.photo_base64 = None
+    
+    tree_state.save_state("import_json")
+    tree_state.tree = tree_data
+    
+    logger.info("Imported tree with %d persons", len(tree_data.persons))
+    return {"status": "imported", "persons": len(tree_data.persons)}

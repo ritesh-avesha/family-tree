@@ -281,15 +281,10 @@ function initKeyboardShortcuts() {
             }
         }
 
-        // Ctrl+S - Save
+        // Ctrl+S - Export JSON (download)
         if (e.ctrlKey && e.key === 's') {
             e.preventDefault();
-            try {
-                await API.saveTree();
-                showToast('Saved', 'success');
-            } catch (error) {
-                showToast('Save failed', 'error');
-            }
+            document.getElementById('export-json-btn').click();
         }
 
         // Escape - Close modals
@@ -335,38 +330,75 @@ function initToolbar() {
         }
     });
 
-    // Save (use current file or prompt for new)
-    document.getElementById('save-btn').addEventListener('click', async () => {
+    // Export JSON - downloads tree as JSON file with embedded photos
+    document.getElementById('export-json-btn').addEventListener('click', async () => {
         try {
-            let filename = AppState.currentFilename;
-            if (!filename) {
-                filename = prompt('Enter filename:', `family_tree_${new Date().toISOString().slice(0, 10)}`);
-                if (!filename) return; // User cancelled
+            updateStatus('Exporting...');
+            const response = await fetch('/api/tree/export-json');
+            if (!response.ok) throw new Error('Export failed');
+
+            const data = await response.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `family_tree_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Tree exported successfully', 'success');
+            updateStatus('Ready');
+        } catch (error) {
+            console.error('Export failed:', error);
+            showToast('Export failed', 'error');
+            updateStatus('Export failed');
+        }
+    });
+
+    // Import JSON - file picker to load tree from JSON file
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                updateStatus('Importing...');
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                // Validate basic structure
+                if (!data.persons || typeof data.persons !== 'object') {
+                    throw new Error('Invalid family tree format: missing persons');
+                }
+                if (!data.marriages || typeof data.marriages !== 'object') {
+                    throw new Error('Invalid family tree format: missing marriages');
+                }
+
+                // Warn about large files
+                if (file.size > 5 * 1024 * 1024) {
+                    if (!confirm('This file is larger than 5MB. It may contain many photos. Continue?')) {
+                        updateStatus('Import cancelled');
+                        return;
+                    }
+                }
+
+                const response = await API.request('POST', '/tree/import-json', data);
+                await loadTreeData();
+                TreeRenderer.centerView();
+                showToast(`Imported ${response.persons} persons`, 'success');
+                updateStatus('Ready');
+            } catch (error) {
+                console.error('Import failed:', error);
+                showToast(`Import failed: ${error.message}`, 'error');
+                updateStatus('Import failed');
             }
-            const result = await API.saveTree(filename);
-            AppState.currentFilename = result.filename;
-            showToast(`Saved: ${result.filename}`, 'success');
-        } catch (error) {
-            showToast('Save failed', 'error');
-        }
-    });
-
-    // Save As (always prompt for new filename)
-    document.getElementById('save-as-btn').addEventListener('click', async () => {
-        try {
-            const filename = prompt('Enter new filename:', `family_tree_${new Date().toISOString().slice(0, 10)}`);
-            if (!filename) return; // User cancelled
-            const result = await API.saveTree(filename);
-            AppState.currentFilename = result.filename;
-            showToast(`Saved as: ${result.filename}`, 'success');
-        } catch (error) {
-            showToast('Save failed', 'error');
-        }
-    });
-
-    // Load
-    document.getElementById('load-btn').addEventListener('click', async () => {
-        Forms.openLoadModal();
+        };
+        input.click();
     });
 
     // Clear canvas

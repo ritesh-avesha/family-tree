@@ -20,6 +20,7 @@ class Person(BaseModel):
     date_of_birth: Optional[str] = None
     date_of_death: Optional[str] = None
     photo_path: Optional[str] = None
+    photo_base64: Optional[str] = None  # Base64 encoded photo for JSON export
     notes: Optional[str] = None
     x: float = 0.0
     y: float = 0.0
